@@ -1,3 +1,4 @@
+
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -9,7 +10,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-COPY models/ ./models/
+
+# Generate the trained model inside the Docker image
+RUN mkdir -p data models && python src/train.py
 
 EXPOSE 8000
 
