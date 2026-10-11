@@ -1,0 +1,12 @@
+
+stages:
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - data/iris.csv
+    outs:
+      - models/iris_model.joblib
+    metrics:
+      - models/metrics.json:
+          cache: false
