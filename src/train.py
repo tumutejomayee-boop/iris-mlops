@@ -1,15 +1,16 @@
 
+
 import json
 from pathlib import Path
 
 import joblib
 import mlflow
+import mlflow.models
 import mlflow.sklearn
-import pandas as pd
 from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 
 
 # Project paths
@@ -30,13 +31,13 @@ def train_model():
     iris = load_iris(as_frame=True)
     df = iris.frame.copy()
 
-    # Save a reproducible dataset snapshot
+    # Save the dataset
     df.to_csv(DATA_PATH, index=False)
 
     X = df[iris.feature_names]
     y = df["target"]
 
-    # Split data into training and testing sets
+    # Split into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(
         X,
         y,
@@ -45,21 +46,25 @@ def train_model():
         stratify=y,
     )
 
+    # Create the model
     model = RandomForestClassifier(
         n_estimators=100,
         random_state=42,
     )
 
-    # Track the experiment with MLflow
+    # Configure MLflow
     mlflow.set_tracking_uri((ROOT_DIR / "mlruns").as_uri())
     mlflow.set_experiment("iris-classification")
 
     with mlflow.start_run():
+        # Train the model
         model.fit(X_train, y_train)
 
+        # Evaluate the model
         predictions = model.predict(X_test)
         accuracy = accuracy_score(y_test, predictions)
 
+        # Log parameters and metrics
         mlflow.log_param("model_type", "RandomForestClassifier")
         mlflow.log_param("n_estimators", 100)
         mlflow.log_param("test_size", 0.2)
@@ -83,13 +88,26 @@ def train_model():
 
         METRICS_PATH.write_text(json.dumps(metrics, indent=4))
 
-        # Log the model as an MLflow artifact
-        mlflow.sklearn.log_model(model, artifact_path="iris_model")
+        # Create MLflow model signature and input example
+        input_example = X_test.iloc[:5]
+        signature = mlflow.models.infer_signature(
+            input_example,
+            model.predict(input_example),
+        )
 
-        print(f"Accuracy: {accuracy:.4f}")
-        print(f"Model saved to: {MODEL_PATH}")
-        print(f"Dataset saved to: {DATA_PATH}")
-        print(f"Metrics saved to: {METRICS_PATH}")
+        # Log the model to MLflow
+        mlflow.sklearn.log_model(
+            model,
+            artifact_path="iris_model",
+            signature=signature,
+            input_example=input_example,
+        )
+
+    # Print results
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Model saved to: {MODEL_PATH}")
+    print(f"Dataset saved to: {DATA_PATH}")
+    print(f"Metrics saved to: {METRICS_PATH}")
 
 
 if __name__ == "__main__":
